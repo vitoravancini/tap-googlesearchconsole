@@ -73,9 +73,9 @@ def get_selected_streams(catalog):
 
 
 def sync(config, state, catalog):
-    
+
     selected_stream_ids = get_selected_streams(catalog)
-    
+
     # Loop over streams in catalog
     for stream in catalog.streams:
         stream_id = stream.tap_stream_id
@@ -88,17 +88,18 @@ def sync(config, state, catalog):
             #gonna use at last 5 day window, some times google takes up to3 days to update gsc
             if start_date == end_date:
                 start_date = start_date - timedelta(days=5)
-            
+
             while start_date <= end_date:
                 LOGGER.info('Syncing stream:{} for day {}'.format(stream_id, start_date.isoformat()))
-                
+
                 lines = google_search_console.get_search_console_report(config, stream, start_date.isoformat())
                 for line in lines:
-            
+
                     with Transformer(singer.UNIX_MILLISECONDS_INTEGER_DATETIME_PARSING) as bumble_bee:
                         singer_lines = bumble_bee.transform(line, stream_schema.to_dict())
 
-                    singer.write_record(stream_id, singer_lines, stream_alias)            
+                    singer_lines['extraction_date'] = date.today().isoformat()
+                    singer.write_record(stream_id, singer_lines, stream_alias)
                 LOGGER.info("waiting 2s for next day")
                 time.sleep(2)
                 start_date = start_date + timedelta(days=1)
@@ -119,7 +120,7 @@ def build_singer_line(metric_line, schema):
         singer_line[field_name] = metric_line[field_index]
 
     return singer_line
-    
+
 
 
 @utils.handle_top_exception(LOGGER)
@@ -127,7 +128,7 @@ def main():
 
     # Parse command line arguments
     args = utils.parse_args(REQUIRED_CONFIG_KEYS)
-    
+
     # If discover flag was passed, run discovery mode and dump output to stdout
     if args.discover:
         catalog = discover()
